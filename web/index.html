@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e1216">
+  <title>Casa · Energia</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol>
+    <symbol id="i-light" viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.5-1.5 3.5h-4c0-2-.6-2.8-1.5-3.5Z"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M8 3v5m8-5v5M6 8h12v4a6 6 0 0 1-12 0Zm6 10v4"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 3v6m8 0v6M10 15v6"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-8Z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  </svg>
+
+  <main class="dashboard" id="dashboard">
+    <header class="topbar">
+      <div class="brand"><span class="brand-icon"><svg><use href="#i-home"/></svg></span><div><h1>Casa<span> / Energia</span></h1><p>Due zone. Un colpo d’occhio.</p></div></div>
+      <div class="toolbar">
+        <div class="mode-control" aria-label="Fonte dei dati"><button id="mode-cloud" class="selected" aria-pressed="true">Cloud</button><button id="mode-demo" aria-pressed="false">Simulazione</button></div>
+        <button class="icon-button" id="fullscreen" aria-label="Attiva schermo intero" title="Schermo intero"><svg><use href="#i-expand"/></svg></button>
+        <button class="icon-button" id="open-settings" aria-label="Apri impostazioni" title="Impostazioni"><svg><use href="#i-settings"/></svg></button>
+      </div>
+    </header>
+
+    <div class="demo-banner" id="demo-banner" hidden><span><strong>SIMULAZIONE</strong> · I dati di casa restano separati.</span><button id="exit-demo">Torna al cloud →</button></div>
+
+    <section class="overview" aria-label="Potenza totale e soglia">
+      <div class="total-block"><p class="eyebrow">POTENZA TOTALE</p><div class="total-value"><span id="total">—</span><span class="total-unit">kW</span></div><p id="total-caption">Collegamento a Shelly Cloud…</p></div>
+      <div class="budget">
+        <div class="budget-head"><span id="budget-title">Margine disponibile</span><strong id="remaining">— kW</strong></div>
+        <div class="meter" id="meter" role="meter" aria-label="Utilizzo della potenza disponibile" aria-valuemin="0" aria-valuemax="4500"><div id="meter-fill"></div><span id="warning-marker" title="Soglia di preavviso"></span></div>
+        <div class="meter-labels"><span>0 kW</span><span>Limite <strong id="limit-label">4,50 kW</strong></span></div>
+      </div>
+      <div class="status-card" id="status-card"><span class="status-indicator" id="status-symbol">·</span><div><strong id="status-title">In attesa dei dati</strong><p id="status-description">Verifico le quattro misure</p></div></div>
+    </section>
+
+    <section class="readings" aria-label="Quattro circuiti di casa">
+      <div class="zone"><div class="zone-heading"><h2 id="zone1-name">Zona 1</h2><span id="zone1-total">— W</span></div><div id="zone1-cards" class="zone-cards"></div></div>
+      <div class="zone"><div class="zone-heading"><h2 id="zone2-name">Zona 2</h2><span id="zone2-total">— W</span></div><div id="zone2-cards" class="zone-cards"></div></div>
+    </section>
+
+    <section class="alarm-bar" id="alarm-bar" aria-label="Allarme acustico">
+      <div class="audio-description"><svg><use href="#i-sound"/></svg><div><strong id="audio-title">Allarme acustico disattivato</strong><span id="audio-description">Attiva l’audio in questa finestra</span></div></div>
+      <div class="audio-actions"><button id="mute" class="button danger" hidden>Silenzia 2 minuti</button><button id="enable-audio" class="button">Attiva audio</button><button id="test-audio" class="text-button" disabled>Prova suono</button></div>
+    </section>
+
+    <section class="simulation-controls" id="simulation-controls" aria-label="Scenari di prova" hidden><span>Prova uno scenario</span><div><button class="scenario selected" data-scenario="normal">Regolare</button><button class="scenario" data-scenario="warning">Preavviso</button><button class="scenario" data-scenario="overload">Superamento</button><button class="scenario" data-scenario="offline">Perdita dati</button></div></section>
+
+    <footer class="footer"><div class="connection-status"><span class="connection-dot" id="connection-dot"></span><span id="connection-label">Connessione in corso</span></div><button id="mapping-note" class="mapping-note">Associazione delle zone da confermare ↗</button><span class="clock" id="clock"></span></footer>
+    <div class="notice" id="notice" role="status" aria-live="polite"></div>
+    <div class="sr-only" id="announcement" role="alert" aria-live="assertive"></div>
+  </main>
+
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <form id="settings-form">
+      <div class="dialog-heading"><div><p class="eyebrow">MONITOR DI CASA</p><h2 id="settings-title">Impostazioni</h2></div><button type="button" class="icon-button" id="close-settings" aria-label="Chiudi impostazioni"><svg><use href="#i-close"/></svg></button></div>
+      <p class="dialog-intro">Le modifiche riguardano solo questo monitor.</p>
+      <fieldset><legend>Soglie e aggiornamento</legend><div class="form-grid">
+        <label>Allarme (W)<input id="setting-limit" type="number" min="500" max="30000" step="1" required></label>
+        <label>Preavviso (W)<input id="setting-warning" type="number" min="100" max="29999" step="1" required></label>
+        <label>Margine di rientro (W)<input id="setting-hysteresis" type="number" min="10" max="2000" step="1" required></label>
+        <label>Dati scaduti dopo (s)<input id="setting-stale" type="number" min="15" max="300" step="1" required></label>
+        <label>Silenzia per (s)<input id="setting-mute" type="number" min="10" max="900" step="1" required></label>
+      </div><p class="field-help" id="reset-explanation"></p></fieldset>
+      <fieldset><legend>Quattro tile, quattro canali distinti</legend><p class="field-help">I nomi dell’app Shelly non arrivano nelle impostazioni dei dispositivi. L’associazione iniziale è provvisoria: scegli il canale corretto per ogni tile.</p><div id="mapping-fields"></div><label class="checkbox-label"><input type="checkbox" id="setting-confirmed">Ho verificato l’associazione delle quattro tile</label></fieldset>
+      <details class="devices-details"><summary>Dispositivi rilevati</summary><ul id="devices-list"></ul></details>
+      <button type="button" class="text-button" id="settings-appliances">Associa i misuratori degli apparecchi →</button>
+      <p class="form-error" id="settings-error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" class="button" id="cancel-settings">Annulla</button><button type="submit" class="button primary" id="save-settings">Salva impostazioni</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="detail-dialog" class="detail-dialog" aria-labelledby="detail-title">
+    <div class="dialog-heading"><div><p class="eyebrow" id="detail-kicker">DETTAGLIO CIRCUITO</p><h2 id="detail-title">Forza</h2></div><button type="button" class="icon-button" id="close-detail" aria-label="Chiudi dettaglio"><svg><use href="#i-close"/></svg></button></div>
+    <p class="dialog-intro" id="detail-source"></p>
+    <div class="detail-global-alarm" id="detail-global-alarm" hidden><strong id="detail-alarm-text" aria-live="assertive">Allarme casa attivo</strong><button type="button" class="button danger" id="detail-mute">Silenzia allarme</button></div>
+    <p class="detail-status" id="detail-status"></p>
+    <div class="detail-metrics"><div><span>Potenza istantanea</span><strong id="detail-power">— W</strong></div><div><span>Energia cumulata</span><strong id="detail-energy">— kWh</strong></div></div>
+    <p class="field-help" id="detail-energy-note">Il contatore cumulato è riferito al misuratore, dalla sua installazione o dall’ultimo azzeramento. Non è il consumo di oggi.</p>
+    <section id="detail-appliance-section" class="detail-appliance-section"><div class="detail-section-heading"><h3>Apparecchi della zona</h3><button class="text-button" id="open-assignments">Associa misuratori ↗</button></div><p class="field-help" id="detail-appliance-note"></p><div id="detail-appliances"></div><p class="field-help">Queste misure dettagliano il totale di zona: non vengono sommate nuovamente al totale di casa.</p></section>
+    <section class="detail-trend-section" aria-label="Andamento del circuito"><div><h3>Andamento della sessione</h3><span id="detail-range"></span></div><svg id="detail-trend" viewBox="0 0 560 72" preserveAspectRatio="none" role="img" aria-label="Potenza misurata negli ultimi campioni della sessione"><polyline id="detail-trend-line"/></svg><p class="field-help" id="detail-trend-note">In attesa di campioni sufficienti.</p></section>
+  </dialog>
+
+  <dialog id="assignments-dialog" aria-labelledby="assignments-title">
+    <form id="assignments-form"><div class="dialog-heading"><div><p class="eyebrow">DETTAGLIO CONSUMI</p><h2 id="assignments-title">Associa apparecchi</h2></div><button type="button" class="icon-button" id="close-assignments" aria-label="Chiudi associazioni"><svg><use href="#i-close"/></svg></button></div>
+      <p class="dialog-intro">Scegli la zona Forza che alimenta ciascun apparecchio e il suo misuratore dedicato. Lascia “Da installare” finché non è presente.</p>
+      <p class="field-help">Per separare lavatrice e asciugatrice servono due canali di misura, anche se il comando di alimentazione è comune. I quattro contatori di zona non possono essere riutilizzati come misure dei singoli apparecchi.</p>
+      <div id="assignment-fields"></div><p id="assignments-error" class="form-error" role="alert"></p><div class="dialog-actions"><button type="button" class="button" id="cancel-assignments">Annulla</button><button type="submit" class="button primary" id="save-assignments">Salva associazioni</button></div>
+    </form>
+  </dialog>
+</body>
+</html>

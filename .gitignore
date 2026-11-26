@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.local/
+__pycache__/
+firmware/CasaMonitor/build/
+
+# Local installation material and operating-system files
+schemi/
+.DS_Store
