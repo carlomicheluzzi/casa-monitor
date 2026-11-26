@@ -47,3 +47,17 @@ Per la prima pubblicazione 1.1.3, il binario è quello caricato e verificato via
 ## File esclusi
 
 `.local/` (inclusi backup, credenziali di esercizio e chiave privata), `.env` e varianti, cache Python e materiali locali dell’installazione non vengono pubblicati. Le licenze dei driver e dei font inclusi restano nei rispettivi percorsi.
+
+## Impostare l’URL via USB (firmware 1.1.4 o successivo)
+
+Con il display collegato al Mac, il comando seguente modifica soltanto l’URL aggiornamenti e conserva Wi-Fi, chiave Shelly, associazioni e preferenze:
+
+```bash
+python3 firmware/scripts/provision.py --updates-url https://github.com/carlomicheluzzi/casa-monitor/releases/latest/download/manifest.json
+python3 firmware/scripts/provision.py --check-updates
+python3 firmware/scripts/provision.py --status
+```
+
+La sezione `updates` dello stato mostra URL salvato, controllo giornaliero, installazione automatica, contatore verifiche, HTTP/TLS, redirect, firma verificata, compatibilità e versione trovata su GitHub. La richiesta `--check-updates` avvia il controllo sul dispositivo: attendere `busy: false` e verificare `http_code: 200`, `signature_verified: true` e `manifest_compatible: true`. Nessun firmware viene installato da questi comandi.
+
+L’URL viene salvato nella NVS e caricato al riavvio. L’impostazione USB è rifiutata mentre è in corso una verifica o installazione. È richiesto un URL HTTPS valido senza credenziali. Il comando non carica né ritrasmette le credenziali cloud.

@@ -2,7 +2,7 @@
 
 Monitor dei consumi Shelly per **Waveshare ESP32-S3-Touch-LCD-4.3C**, con quattro tile touch, soglia di potenza, allarme acustico, standby e aggiornamenti OTA firmati. Le letture nella LAN hanno precedenza sul cloud di riserva. È inclusa una dashboard Python opzionale per il Mac.
 
-Firmware corrente: **1.1.3**. [Release e download](https://github.com/carlomicheluzzi/casa-monitor/releases/latest) · [Documentazione del display](firmware/README.md).
+Firmware corrente: **1.1.4**. [Release e download](https://github.com/carlomicheluzzi/casa-monitor/releases/latest) · [Documentazione del display](firmware/README.md).
 
 Per gli aggiornamenti, inserire in **Impostazioni → Aggiornamenti** questo indirizzo:
 
@@ -14,7 +14,7 @@ Il controllo legge il manifest firmato; l’installazione automatica è inizialm
 
 Gli identificativi dei misuratori e le associazioni predefinite corrispondono all’installazione iniziale: vanno adattati da **Monitor, canali e apparecchi** oppure mediante il provisioning USB. Nel repository e nei pacchetti non sono incluse password, chiavi cloud, backup flash o la chiave privata di firma.
 
-Firmware ESP32: [novità e aggiornamento USB 1.1.3](firmware/UPGRADE-1.1.md).
+Firmware ESP32: [novità e aggiornamento USB 1.1.4](firmware/UPGRADE-1.1.md).
 
 Dashboard locale per quattro circuiti misurati da due Shelly EM: potenza di ogni circuito, somma, margine rispetto al limite, preavviso e allarme acustico. È disponibile anche il [firmware autonomo per Waveshare 4.3C](firmware/README.md): letture Shelly Cloud v2 via HTTPS, quattro tile, dettagli e storico della sessione, soglie, audio, silenziamento, simulazione separata e configurazione Wi-Fi touch.
 

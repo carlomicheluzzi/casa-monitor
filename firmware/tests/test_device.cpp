@@ -1,5 +1,7 @@
 #include "device_model.h"
 #include "crypto_util.h"
+#include "usb_update_model.h"
+#include <cJSON.h>
 #include <iostream>
 #include <fstream>
 #include <functional>
@@ -10,6 +12,8 @@ using namespace casa;
 static std::string read(const std::string &path){std::ifstream f(path);return std::string(std::istreambuf_iterator<char>(f),{});}
 int main(int argc,char **argv){CHECK(argc==2);std::string dir=argv[1];
     std::vector<std::pair<const char *,std::function<void()>>> cases={
+        {"USB update URL requires explicit configuration command and HTTPS",[]{auto *r=cJSON_Parse(R"({"casa_updates_configure":1,"manifest_url":"https://github.com/carlomicheluzzi/casa-monitor/releases/latest/download/manifest.json"})");auto command=parseUpdateUsb(r);cJSON_Delete(r);CHECK(command.action==UpdateUsbAction::Configure);CHECK(command.manifestUrl.find("github.com")!=std::string::npos);for(auto value:{R"({"casa_updates_configure":1,"manifest_url":"http://example.org/x"})",R"({"casa_updates_configure":true,"manifest_url":"https://example.org/x"})",R"({"casa_updates_configure":1})",R"({"casa_updates_configure":1,"manifest_url":"https://secret@example.org/x"})"}){r=cJSON_Parse(value);CHECK(parseUpdateUsb(r).action==UpdateUsbAction::Invalid);cJSON_Delete(r);}}},
+        {"USB check does not configure credentials and ambiguous commands fail",[]{auto *r=cJSON_Parse(R"({"casa_updates_check":1})");CHECK(parseUpdateUsb(r).action==UpdateUsbAction::Check);cJSON_Delete(r);r=cJSON_Parse(R"({"casa_updates_configure":1,"casa_updates_check":1,"manifest_url":"https://example.org/x"})");CHECK(parseUpdateUsb(r).action==UpdateUsbAction::Invalid);cJSON_Delete(r);r=cJSON_Parse(R"({"casa_status":1})");CHECK(parseUpdateUsb(r).action==UpdateUsbAction::None);cJSON_Delete(r);}},
         {"options round trip retains secrets privately",[]{DeviceOptions a,b;a.devices.push_back({"aabbccddeeff","192.168.1.80","admin","secret",4});CHECK(parseOptions(encodeOptions(a).c_str(),b));CHECK(b.devices[0].password=="secret");CHECK(b.screenTimeout==120);CHECK(!b.autoInstall);}},
         {"malformed options rejected",[]{DeviceOptions c;CHECK(!parseOptions("{}",c));CHECK(!parseOptions("{",c));c.screenTimeout=1;CHECK(!validateOptions(c).empty());c={};c.devices.push_back({"aabbccddeeff","8.8.8.8","admin","",4});CHECK(!validateOptions(c).empty());}},
         {"local hosts restrict credentials to intranet",[]{CHECK(localHostAllowed(""));CHECK(localHostAllowed("192.168.1.2"));CHECK(localHostAllowed("shellyem-123456.local"));CHECK(localHostAllowed("10.0.0.1"));CHECK(!localHostAllowed("172.32.1.2"));CHECK(!localHostAllowed("http://192.168.1.2"));CHECK(!localHostAllowed("user@192.168.1.2"));CHECK(!localHostAllowed("127.0.0.1"));}},

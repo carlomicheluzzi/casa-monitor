@@ -82,17 +82,26 @@ def exchange(port,request,status=False):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port');parser.add_argument('--env-file',type=Path,default=DEFAULT_ENV)
-    parser.add_argument('--server',default=DEFAULT_SERVER);parser.add_argument('--status',action='store_true')
+    parser.add_argument('--server',default=DEFAULT_SERVER)
+    actions=parser.add_mutually_exclusive_group()
+    actions.add_argument('--status',action='store_true')
+    actions.add_argument('--updates-url',help='Salva soltanto l’URL HTTPS degli aggiornamenti, conservando il resto della configurazione')
+    actions.add_argument('--check-updates',action='store_true',help='Avvia la verifica degli aggiornamenti sul dispositivo')
     args=parser.parse_args()
     ports=sorted(Path('/dev').glob('cu.usb*'))
     port=args.port or (str(ports[0]) if len(ports)==1 else None)
     if not port:sys.exit('Collegare un solo display USB oppure specificare --port.')
     try:
-        request={'casa_status':1} if args.status else payload(args.env_file,args.server)
+        if args.status:request={'casa_status':1}
+        elif args.updates_url is not None:request={'casa_updates_configure':1,'manifest_url':args.updates_url}
+        elif args.check_updates:request={'casa_updates_check':1}
+        else:request=payload(args.env_file,args.server)
         response=exchange(port,request,args.status)
     except Exception:
         sys.exit('Operazione USB non riuscita. Verificare porta, firmware e configurazione; nessuna credenziale mostrata.')
     if args.status:print(json.dumps(response,ensure_ascii=False,indent=2))
+    elif args.updates_url is not None:print('URL aggiornamenti salvato sul dispositivo; altre impostazioni conservate.')
+    elif args.check_updates:print('Verifica aggiornamenti richiesta al dispositivo.')
     else:print('Configurazione Shelly salvata sul display. Chiave trasferita via USB, non mostrata né copiata nei sorgenti.')
 
 if __name__=='__main__':main()

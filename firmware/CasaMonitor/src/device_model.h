@@ -35,7 +35,7 @@ public:
 private:
     DeviceOptions settings;uint32_t activeAt=0,missingAt=0;bool missingSeen=false,missingAlerted=false,consume=false;
 };
-struct UpdateView {bool busy=false,available=false,maintenance=false;unsigned progress=0;std::string status="Aggiornamenti da configurare",version,notes;};
+struct UpdateView {bool busy=false,available=false,maintenance=false,signatureVerified=false,manifestCompatible=false;unsigned progress=0,checks=0,redirects=0;int httpCode=0,tlsError=0;uint32_t checkedAt=0;std::string status="Aggiornamenti da configurare",version,notes;};
 struct ReleaseInfo {unsigned code=0;std::string version,url,sha256,notes;size_t size=0;};
 bool parseRelease(const char *payload,unsigned currentCode,size_t slotSize,ReleaseInfo &release,std::string &error);
 }

@@ -20,12 +20,12 @@ class Body:public Stream {public:std::string text;uint32_t at=millis();
     size_t write(uint8_t b)override{return write(&b,1);}size_t write(const uint8_t *p,size_t n)override{if(text.size()+n>12000||uint32_t(millis()-at)>20000)return 0;text.append(reinterpret_cast<const char *>(p),n);return n;}
     int available()override{return 0;}int read()override{return -1;}int peek()override{return -1;}void flush()override{}
 };
-bool open(HTTPClient &http,NetworkClientSecure &client,std::string url){
+bool open(HTTPClient &http,NetworkClientSecure &client,std::string url,int *httpCode=nullptr,int *tlsError=nullptr,unsigned *redirects=nullptr){
     http.setTimeout(5000);http.setConnectTimeout(5000);http.setReuse(false);http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
     for(unsigned hop=0;hop<4;++hop){if(!httpsUrlAllowed(url,4096))return false;const char *headers[]={"Location"};http.collectHeaders(headers,1);
-        if(!http.begin(client,url.c_str()))return false;int code=http.GET();
+        if(!http.begin(client,url.c_str()))return false;int code=http.GET();if(httpCode)*httpCode=code;if(tlsError){char reason[128];*tlsError=code<0?client.lastError(reason,sizeof(reason)):0;}
         if(code==200)return true;
-        if(code==301||code==302||code==303||code==307||code==308){url=http.header("Location").c_str();http.end();client.stop();continue;}
+        if(code==301||code==302||code==303||code==307||code==308){url=http.header("Location").c_str();if(redirects)*redirects=hop+1;http.end();client.stop();continue;}
         http.end();client.stop();return false;
     }return false;
 }
@@ -45,7 +45,7 @@ void UpdateService::begin(CloudService &c){cloud=&c;mutex=xSemaphoreCreateMutex(
     // OTA runs on the existing cloud worker after it releases its TLS socket.
     // No additional permanent task stack and no simultaneous TLS handshakes.
 }
-void UpdateService::configure(const DeviceOptions &v){xSemaphoreTake(mutex,portMAX_DELAY);bool changed=options.manifestUrl!=v.manifestUrl;options=v;++generation;if(changed){release={};view.available=false;view.version.clear();view.notes.clear();}if(!view.busy)view.status=v.manifestUrl.empty()?"Indirizzo del repository da configurare":"Pronto per verificare gli aggiornamenti";xSemaphoreGive(mutex);}
+void UpdateService::configure(const DeviceOptions &v){xSemaphoreTake(mutex,portMAX_DELAY);bool changed=options.manifestUrl!=v.manifestUrl;options=v;++generation;if(changed){release={};view.available=false;view.version.clear();view.notes.clear();view.signatureVerified=false;view.manifestCompatible=false;view.httpCode=0;view.tlsError=0;view.redirects=0;view.checkedAt=0;attempted=false;}if(!view.busy)view.status=v.manifestUrl.empty()?"Indirizzo del repository da configurare":"Pronto per verificare gli aggiornamenti";xSemaphoreGive(mutex);}
 UpdateView UpdateService::snapshot(){xSemaphoreTake(mutex,portMAX_DELAY);auto v=view;v.maintenance=dark.load();xSemaphoreGive(mutex);return v;}
 void UpdateService::status(const std::string &s,bool busy){xSemaphoreTake(mutex,portMAX_DELAY);view.status=s;view.busy=busy;xSemaphoreGive(mutex);}
 void UpdateService::tick(bool safe,bool quiet){safeNow.store(safe);
@@ -70,7 +70,9 @@ void UpdateService::tick(bool safe,bool quiet){safeNow.store(safe);
 }
 void UpdateService::entry(void *self){static_cast<UpdateService *>(self)->task();}
 bool UpdateService::fetch(const std::string &url,std::string &body){NetworkClientSecure client;setupTls(client);HTTPClient http;bool ok=false;
-    if(open(http,client,url)&&http.getSize()<=12000){Body response;ok=http.writeToStream(&response)>0;if(ok)body=std::move(response.text);}http.end();client.stop();return ok;
+    int code=0,tls=0;unsigned redirects=0;
+    if(open(http,client,url,&code,&tls,&redirects)&&http.getSize()<=12000){Body response;ok=http.writeToStream(&response)>0;if(ok)body=std::move(response.text);}
+    http.end();client.stop();xSemaphoreTake(mutex,portMAX_DELAY);view.httpCode=code;view.tlsError=tls;view.redirects=redirects;xSemaphoreGive(mutex);return ok;
 }
 bool UpdateService::apply(const ReleaseInfo &v){
     if(!safeNow.load()||!bootReady.load()){status("Installazione sospesa: attendi dati validi e consumi sotto soglia");return false;}
@@ -99,7 +101,7 @@ void UpdateService::task(){
     DeviceOptions cfg;uint32_t gen;ReleaseInfo candidate;
     xSemaphoreTake(mutex,portMAX_DELAY);cfg=options;gen=generation;candidate=release;xSemaphoreGive(mutex);
     bool success=false,install=scheduledInstall.load();
-    if(!install){xSemaphoreTake(mutex,portMAX_DELAY);release={};view.available=false;view.version.clear();view.notes.clear();xSemaphoreGive(mutex);}
+    if(!install){xSemaphoreTake(mutex,portMAX_DELAY);release={};view.available=false;view.version.clear();view.notes.clear();view.signatureVerified=false;view.manifestCompatible=false;view.httpCode=0;view.tlsError=0;view.redirects=0;++view.checks;view.checkedAt=millis();xSemaphoreGive(mutex);}
     configTime(0,0,"pool.ntp.org","time.cloudflare.com");auto waitAt=millis();
     while(time(nullptr)<1735689600&&uint32_t(millis()-waitAt)<10000)vTaskDelay(pdMS_TO_TICKS(100));
     if(time(nullptr)<1735689600)status("Ora non sincronizzata: riprova con Internet disponibile");
@@ -107,10 +109,17 @@ void UpdateService::task(){
     else {std::string envelope,payload,error;ReleaseInfo next;auto *slot=esp_ota_get_next_update_partition(nullptr);
         if(!fetch(cfg.manifestUrl,envelope))status("Repository non raggiungibile o risposta troppo grande");
         else if(!verifySignedPayload(envelope,UPDATE_PUBLIC_KEY,payload))status("Firma aggiornamento non valida: pacchetto rifiutato");
-        else if(slot&&parseRelease(payload.c_str(),FIRMWARE_CODE,slot->size,next,error)){
-            if(next.code==blockedCode){status("Questa versione ha già fallito l’avvio. Attendo una nuova release");retry.store(86400000);return;}
-            xSemaphoreTake(mutex,portMAX_DELAY);if(gen==generation){release=next;view.available=true;view.version=next.version;view.notes=next.notes;view.status="Aggiornamento disponibile: "+next.version;}view.busy=false;xSemaphoreGive(mutex);success=true;
-        }else {status(error.empty()?"Partizione OTA non disponibile":"Nessun aggiornamento compatibile più recente");success=true;}
+        else {
+            xSemaphoreTake(mutex,portMAX_DELAY);view.signatureVerified=true;xSemaphoreGive(mutex);
+            if(!slot)status("Partizione OTA non disponibile");
+            else if(!parseRelease(payload.c_str(),0,slot->size,next,error))status("Manifest firmato ma non compatibile con questo dispositivo");
+            else {
+                xSemaphoreTake(mutex,portMAX_DELAY);view.manifestCompatible=true;view.version=next.version;view.notes=next.notes;xSemaphoreGive(mutex);
+                if(next.code==blockedCode){status("Questa versione ha già fallito l’avvio. Attendo una nuova release");retry.store(86400000);return;}
+                if(next.code<=FIRMWARE_CODE){status(std::string("Software aggiornato · installata ")+FIRMWARE_VERSION+" · GitHub "+next.version);success=true;}
+                else {xSemaphoreTake(mutex,portMAX_DELAY);if(gen==generation){release=next;view.available=true;view.status="Aggiornamento disponibile: "+next.version;}view.busy=false;xSemaphoreGive(mutex);success=true;}
+            }
+        }
     }
     retry.store(success?86400000:3600000);
 }

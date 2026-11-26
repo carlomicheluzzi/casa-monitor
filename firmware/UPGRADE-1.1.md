@@ -1,4 +1,4 @@
-# CasaMonitor 1.1.3 — aggiornamento USB e uso a casa
+# CasaMonitor 1.1.4 — aggiornamento USB e uso a casa
 
 La versione iniziale 1.1.0 è stata preparata il 25 novembre 2026. Il 26 novembre è stato eseguito il caricamento USB e la revisione 1.1.2 legge correttamente le quattro misure dal cloud sulla rete dell’ufficio. Lo standby e il risveglio con tap della successiva 1.1.3 sono confermati dall’utente; la stabilità video prolungata, letture locali nella LAN di casa e aggiornamento/rollback OTA restano da collaudare. La build e le simulazioni desktop non sostituiscono queste verifiche.
 
@@ -99,3 +99,11 @@ Aggiunti quattro test di regressione: perdita dati persistente, riarmo dopo recu
 Il protocollo USB ora riporta timer, inattività, sospensione della policy, conteggio pressioni, stato logico di standby e comando retroilluminazione. Per il collaudo è disponibile `casa_display_test:1` con `timeout_s` 15–120: non modifica la NVS, e si ripristina automaticamente dopo cinque minuti. `timeout_s:0` ripristina immediatamente il timeout salvato. Nella prova a 15 secondi, il firmware entra in standby e invia il comando di spegnimento, mantenendolo per tutti i campioni successivi senza tocchi. La conferma visiva e del risveglio resta da ricevere.
 
 **Esito della prova 1.1.3:** l’utente conferma che lo schermo diventa nero e un solo tap ripristina le quattro tile. I riepiloghi USB confermano stato logico di standby dopo 15 secondi, nessuna pressione fantasma e una sola pressione durante il risveglio. Il timeout temporaneo è stato poi disattivato via USB e quello normale verificato a 120 secondi, uguale al valore salvato. All’ultimo controllo: Wi-Fi collegato, 55 richieste HTTP, zero errori e memoria interna minima 28.120 byte. Non è stata provocata una condizione elettrica di sovraccarico: il risveglio per allarme è coperto dai test della policy ma non da una prova di carico reale. La qualità video protratta e la LAN di casa rimangono da osservare.
+
+## Revisione 1.1.4: configurazione e controllo aggiornamenti via USB
+
+Aggiunti due comandi USB con identificativo di richiesta: impostazione del solo URL manifest e richiesta di controllo aggiornamenti. Il primo valida HTTPS e conserva le altre opzioni; il secondo avvia il task di verifica dell’ESP32. Lo stato riporta contatore controlli, HTTP, TLS, redirect, firma, compatibilità e versione online. Il confronto distingue un manifest firmato valido che contiene una versione già installata o precedente da un manifest incompatibile.
+
+Test aggiunti: due casi C++ per i comandi USB (inclusi input non validi) e quattro casi Python per impedire caricamenti di credenziali o azioni ambigue durante la configurazione degli aggiornamenti. Passano 26 test dispositivo, 19 rete, 19 energia, 14 strumenti e 23 Python: 101 test complessivi e tre suite LVGL.
+
+Primo controllo reale dalla 1.1.4: URL GitHub salvato via USB, Wi-Fi attivo, HTTP 200 dopo due redirect, firma verificata, manifest compatibile e versione GitHub 1.1.3. Il controllo giornaliero è abilitato, l’installazione automatica disabilitata; il firmware non installa la versione precedente. Il riavvio e il controllo della release allineata vengono registrati nel verbale privato dopo l’osservazione.

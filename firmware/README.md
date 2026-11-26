@@ -4,11 +4,11 @@ Firmware Arduino per **Waveshare ESP32-S3-Touch-LCD-4.3C**, 800×480, GT911, 16 
 
 Il firmware implementa **monitor Shelly, display, touch, audio e configurazione Wi-Fi**. Dopo il trasferimento iniziale delle credenziali via USB funziona autonomamente, senza server Python o Mac acceso. I sorgenti e i binari compilati non contengono la chiave Shelly o la password Wi-Fi del proprietario; queste vengono salvate separatamente nella NVS del dispositivo.
 
-## Versione 1.1.3 caricata via USB
+## Versione 1.1.4 caricata via USB
 
 Standby e luminosità configurabili, risveglio con tap/allarme, letture Shelly locali con scoperta mDNS e cloud di riserva opzionale, OTA firmato con controllo giornaliero e installazione manuale o automatica opzionale. La destinazione degli aggiornamenti è GitHub Releases di `carlomicheluzzi/casa-monitor`. Configurare l’URL stabile descritto nel [README principale](../README.md); senza URL l’OTA non esegue richieste.
 
-Istruzioni, limiti e collaudo da completare sul dispositivo: **[Aggiornamento 1.1.3](UPGRADE-1.1.md)**. La revisione 1.1.3 è caricata sul pannello; Wi-Fi e letture cloud sono confermati in ufficio. L’utente conferma spegnimento e riaccensione con un singolo tap nella prova accelerata; ripristinato il timeout normale di 120 secondi. L’avviso per dati mancanti si attiva una volta per interruzione. LAN di casa, OTA e qualità video per periodi prolungati restano da verificare. I due buffer TLS grandi usano PSRAM, mantenendo margine nella memoria interna.
+Istruzioni, limiti e collaudo da completare sul dispositivo: **[Aggiornamento 1.1.4](UPGRADE-1.1.md)**. La revisione 1.1.3 è caricata sul pannello; Wi-Fi e letture cloud sono confermati in ufficio. L’utente conferma spegnimento e riaccensione con un singolo tap nella prova accelerata; ripristinato il timeout normale di 120 secondi. L’avviso per dati mancanti si attiva una volta per interruzione. LAN di casa, OTA e qualità video per periodi prolungati restano da verificare. I due buffer TLS grandi usano PSRAM, mantenendo margine nella memoria interna.
 
 ## Monitor dei consumi
 
@@ -136,3 +136,5 @@ Fonti: [scheda Waveshare](https://docs.waveshare.com/ESP32-S3-Touch-LCD-4.3C), [
 Sorgenti: https://github.com/carlomicheluzzi/casa-monitor
 
 Manifest stabile: `https://github.com/carlomicheluzzi/casa-monitor/releases/latest/download/manifest.json`. [Procedura di rilascio](PUBLISHING.md). La chiave privata di firma resta sul Mac in `.local/release-signing/`, esclusa da Git; il firmware contiene soltanto quella pubblica.
+
+Dalla 1.1.4, il protocollo USB permette anche di impostare l’URL aggiornamenti e avviare una verifica dal dispositivo, conservando le altre configurazioni. Il riepilogo `--status` include gli esiti HTTPS e della firma; vedere [Pubblicazione firmware](PUBLISHING.md#impostare-lurl-via-usb-firmware-114-o-successivo).

@@ -42,7 +42,7 @@ void setup() {
     casa::loadDeviceOptions(options);
     casa::configureDisplay(options);
     local.begin();local.configure(options,cloud.live.config);
-    updates.begin(cloud);updates.configure(options);
+    updates.begin(cloud);updates.configure(options);cloud.attachUpdates(options,updates);
     if(lvgl_port_lock(-1)) {
         screen.init();
         deviceScreen.init(screen.settingsPanel());deviceScreen.deferOpen=true;

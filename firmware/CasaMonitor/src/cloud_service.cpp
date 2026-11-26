@@ -2,6 +2,8 @@
 #include "version.h"
 #include "tls_memory.h"
 #include "device_platform.h"
+#include "update_service.h"
+#include "usb_update_model.h"
 #include <cmath>
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -238,8 +240,19 @@ void CloudService::serialInput() {
         bool displayCommand=cJSON_IsNumber(get(root,"casa_display_test"))&&get(root,"casa_display_test")->valuedouble==1;
         auto *timeoutValue=get(root,"timeout_s");double timeout=cJSON_IsNumber(timeoutValue)?timeoutValue->valuedouble:-1;
         bool timeoutValid=std::isfinite(timeout)&&timeout==std::floor(timeout)&&(timeout==0||(timeout>=15&&timeout<=120));
+        auto updateRequest=parseUpdateUsb(root);
         cJSON_Delete(root);
-        if(displayCommand&&validNonce){bool ok=timeoutValid&&testDisplayTimeout(uint32_t(timeout));Serial.printf("CASA_ACK %s %s\n",nonce.c_str(),ok?"OK":"INVALID_TIMEOUT");}
+        if(updateRequest.action!=UpdateUsbAction::None&&validNonce){
+            bool ok=false;
+            if(deviceOptions&&updateService){
+                if(updateRequest.action==UpdateUsbAction::Configure&&!updateService->snapshot().busy){
+                    auto candidate=*deviceOptions;candidate.manifestUrl=updateRequest.manifestUrl;
+                    ok=saveDeviceOptions(candidate);
+                    if(ok){*deviceOptions=candidate;updateService->configure(candidate);}
+                }else if(updateRequest.action==UpdateUsbAction::Check){updateService->check();ok=true;}
+            }
+            Serial.printf("CASA_ACK %s %s\n",nonce.c_str(),ok?"OK":"INVALID_UPDATES_CONFIG");
+        }else if(displayCommand&&validNonce){bool ok=timeoutValid&&testDisplayTimeout(uint32_t(timeout));Serial.printf("CASA_ACK %s %s\n",nonce.c_str(),ok?"OK":"INVALID_TIMEOUT");}
         else if(command&&validNonce) {
             bool ok=configure(serialBuffer.c_str(),true);
             Serial.printf("CASA_ACK %s %s\n",nonce.c_str(),ok?"OK":"INVALID_CONFIG");
@@ -280,6 +293,19 @@ void CloudService::serialInput() {
             cJSON_AddStringToObject(state,"local_ip",WiFi.localIP().toString().c_str());
             cJSON_AddNumberToObject(state,"request_duration_ms",requestDurationMs.load());
             if(live.complete)cJSON_AddNumberToObject(state,"total_w",live.total);else cJSON_AddNullToObject(state,"total_w");
+            if(deviceOptions&&updateService){
+                auto update=updateService->snapshot();auto *u=cJSON_AddObjectToObject(state,"updates");
+                cJSON_AddStringToObject(u,"manifest_url",deviceOptions->manifestUrl.c_str());
+                cJSON_AddBoolToObject(u,"daily_check",deviceOptions->dailyCheck);
+                cJSON_AddBoolToObject(u,"auto_install",deviceOptions->autoInstall);
+                cJSON_AddBoolToObject(u,"busy",update.busy);cJSON_AddBoolToObject(u,"available",update.available);
+                cJSON_AddBoolToObject(u,"signature_verified",update.signatureVerified);
+                cJSON_AddBoolToObject(u,"manifest_compatible",update.manifestCompatible);
+                cJSON_AddNumberToObject(u,"checks",update.checks);cJSON_AddNumberToObject(u,"checked_at_ms",update.checkedAt);
+                cJSON_AddNumberToObject(u,"http_code",update.httpCode);cJSON_AddNumberToObject(u,"tls_error",update.tlsError);
+                cJSON_AddNumberToObject(u,"redirects",update.redirects);
+                cJSON_AddStringToObject(u,"online_version",update.version.c_str());cJSON_AddStringToObject(u,"status",update.status.c_str());
+            }
             auto *meters=cJSON_AddArrayToObject(state,"circuits");
             for(size_t i=0;i<4;++i) {
                 auto *meter=cJSON_CreateObject();const auto &r=live.readings[i];

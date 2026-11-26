@@ -6,6 +6,7 @@
 #include "device_model.h"
 
 namespace casa {
+class UpdateService;
 class CloudService {
 public:
     EnergyModel live;
@@ -20,11 +21,13 @@ public:
     bool saveConfig(const EnergyConfig &config);
     bool configured() const { return ready; }
     void serialInput();
+    void attachUpdates(DeviceOptions &options,UpdateService &service){deviceOptions=&options;updateService=&service;}
     uint32_t localStackFree=0; // diagnostic, written/read only by loop
     std::string serverName() const;
 private:
     struct Settings { std::string server,key; EnergyConfig energy; std::vector<MeterSource> catalog; } settings;
     struct Result { bool ok=false; RawReadings readings{}; std::string error; uint32_t generation=0; } pending;
+    DeviceOptions *deviceOptions=nullptr;UpdateService *updateService=nullptr;
     TaskHandle_t workerHandle=nullptr;bool workerReady=false;
     SemaphoreHandle_t mutex=nullptr;
     bool ready=false,haveResult=false;

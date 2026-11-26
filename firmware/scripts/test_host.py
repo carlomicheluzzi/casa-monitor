@@ -35,7 +35,7 @@ run([BUILD/"test_energy"])
 
 fixtures(BUILD)
 run([cpp,"-std=c++17","-Wall","-Wextra","-Werror",*common,"-I","/opt/homebrew/opt/openssl@3/include",
-     FW/"tests/test_device.cpp",SRC/"device_model.cpp",SRC/"crypto_util.cpp",SRC/"energy_model.cpp",BUILD/"cJSON.o",
+     FW/"tests/test_device.cpp",SRC/"usb_update_model.cpp",SRC/"device_model.cpp",SRC/"crypto_util.cpp",SRC/"energy_model.cpp",BUILD/"cJSON.o",
      "-L","/opt/homebrew/opt/openssl@3/lib","-lcrypto","-o",BUILD/"test_device"])
 run([BUILD/"test_device",BUILD])
 
