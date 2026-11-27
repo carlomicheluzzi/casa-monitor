@@ -23,6 +23,9 @@ private:
     lv_obj_t *detailInfoDialog=nullptr,*detailInfoText=nullptr,*detailInfoClose=nullptr;
     std::array<lv_obj_t *,3> detailAxis{},detailTime{},detailApplianceCards{},detailApplianceNames{},detailAppliancePowers{},detailApplianceEnergy{};
     lv_chart_series_t *series=nullptr;
+    bool detailGraphCached=false;
+    int detailGraphTop=0;
+    std::vector<float> detailGraphSamples;
     lv_obj_t *configuration=nullptr,*tabs=nullptr,*configError=nullptr,*keyboard=nullptr;
     lv_obj_t *confirmed=nullptr,*audioCheck=nullptr,*save=nullptr,*automationFlag=nullptr;
     std::array<lv_obj_t *,5> fields{};

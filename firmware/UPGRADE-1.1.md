@@ -1,6 +1,33 @@
-# CasaMonitor 1.1.4 — aggiornamento USB e uso a casa
+# CasaMonitor 1.1.5 — riduzione dei ridisegni del display
 
-La versione iniziale 1.1.0 è stata preparata il 25 novembre 2026. Il 26 novembre è stato eseguito il caricamento USB e la revisione 1.1.2 legge correttamente le quattro misure dal cloud sulla rete dell’ufficio. Lo standby e il risveglio con tap della successiva 1.1.3 sono confermati dall’utente; la stabilità video prolungata, letture locali nella LAN di casa e aggiornamento/rollback OTA restano da collaudare. La build e le simulazioni desktop non sostituiscono queste verifiche.
+## Diagnosi successiva: rumore video nella LAN di casa
+
+Il 26 novembre l'utente conferma scoperta e letture LAN funzionanti a casa,
+con rumore video generale. Chiarisce che touch e applicazione continuano a
+funzionare: non è stato confermato un blocco del firmware. A casa sono stati
+cambiati sia cavo sia alimentatore rispetto alle prove in ufficio; il confronto
+con l'alimentazione dal Mac, mantenendo la rete di casa, è ancora da eseguire.
+
+La revisione **1.1.5**, preparata per il rilascio il 27 novembre su richiesta
+dell'utente, elimina
+invalidazioni ripetute degli stessi colori, font e visibilità. In LVGL 8 queste
+operazioni potevano ridisegnare l'intero frame anche a valori invariati. Il
+grafico viene aggiornato soltanto quando cambiano campioni o disposizione;
+interruzioni NaN uguali non provocano ridisegni. Potenza, stato e allarme sono
+aggiornati indipendentemente dalla cache del grafico. Test LVGL riproducono i
+ridisegni prima della modifica e verificano assenza di flush a dati invariati,
+sia in simulazione sia sui dati reali, e ridisegno quando cambiano valori e storia.
+
+Clock a 16 MHz, buffer RGB, letture e allarme restano invariati. La contesa della
+PSRAM è una possibile concausa, documentata nella [guida RGB Espressif](https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/api-reference/peripherals/lcd/rgb_lcd.html#bounce-buffer-with-single-psram-frame-buffer),
+ma questi test non dimostrano che il rumore fisico sia risolto. L'utente descrive
+un disturbo presente circa il 90% del tempo, con brevi intervalli nitidi, e
+proverà un nuovo alimentatore. Restano da verificare alimentazione e qualità
+video sul pannello nella LAN di casa dopo l'aggiornamento. Non viene dichiarata
+risolta la causa del rumore. La pubblicazione non installa il firmware sul
+dispositivo: il controllo manuale è in Impostazioni → Aggiornamenti.
+
+La versione iniziale 1.1.0 è stata preparata il 25 novembre 2026. Il 26 novembre è stato eseguito il caricamento USB e la revisione 1.1.2 legge correttamente le quattro misure dal cloud sulla rete dell’ufficio. Lo standby e il risveglio con tap della successiva 1.1.3 sono confermati dall’utente; sono confermate anche scoperta e letture nella LAN di casa con la 1.1.4. La stabilità video prolungata e aggiornamento/rollback OTA restano da collaudare. La build e le simulazioni desktop non sostituiscono queste verifiche.
 
 ## Cosa cambia
 

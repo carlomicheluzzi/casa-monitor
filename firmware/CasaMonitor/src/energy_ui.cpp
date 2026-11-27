@@ -10,7 +10,16 @@ namespace {
 constexpr uint32_t BG=0x0e1216,SURFACE=0x171d23,LINE=0x303a44,TEXT=0xf2f5f7,MUTED=0xa6b2bd;
 constexpr uint32_t BLUE=0x69b5ff,GREEN=0x71e1b0,AMBER=0xffcd70,RED=0xff8282;
 void text(lv_obj_t *obj,const std::string &value) {if(value!=lv_label_get_text(obj)) lv_label_set_text(obj,value.c_str());}
-void show(lv_obj_t *obj,bool on) {if(!obj)return;if(on)lv_obj_clear_flag(obj,LV_OBJ_FLAG_HIDDEN);else lv_obj_add_flag(obj,LV_OBJ_FLAG_HIDDEN);}
+// LVGL 8 invalidates objects even when the same local style is set again.
+// In full-refresh mode that needlessly redraws 800x480 pixels in PSRAM.
+void textColor(lv_obj_t *obj,uint32_t color) {
+    const auto next=lv_color_hex(color);
+    if(lv_obj_get_style_text_color(obj,0).full!=next.full)lv_obj_set_style_text_color(obj,next,0);
+}
+void textFont(lv_obj_t *obj,const lv_font_t *font) {
+    if(lv_obj_get_style_text_font(obj,0)!=font)lv_obj_set_style_text_font(obj,font,0);
+}
+void show(lv_obj_t *obj,bool on) {if(!obj||lv_obj_has_flag(obj,LV_OBJ_FLAG_HIDDEN)==!on)return;if(on)lv_obj_clear_flag(obj,LV_OBJ_FLAG_HIDDEN);else lv_obj_add_flag(obj,LV_OBJ_FLAG_HIDDEN);}
 lv_obj_t *panel(lv_obj_t *parent,int x,int y,int w,int h) {
     auto *o=lv_obj_create(parent);lv_obj_remove_style_all(o);lv_obj_set_pos(o,x,y);lv_obj_set_size(o,w,h);
     lv_obj_set_style_bg_color(o,lv_color_hex(BG),0);lv_obj_set_style_bg_opa(o,LV_OPA_COVER,0);
@@ -216,7 +225,7 @@ void EnergyUi::closeOverlay(){
     if(detail){lv_obj_del(detail);detail=nullptr;detailInfoDialog=nullptr;detailInfoButton=nullptr;}
     show(configuration,false);keyboardVisible(false);detailIndex=-1;
 }
-void EnergyUi::openDetail(int i){if(!detail)createDetail();detailIndex=i;show(detail,true);show(detailInfoDialog,false);show(configuration,false);}
+void EnergyUi::openDetail(int i){if(!detail)createDetail();detailGraphCached=false;detailGraphSamples.clear();detailIndex=i;show(detail,true);show(detailInfoDialog,false);show(configuration,false);}
 void EnergyUi::populateMappings() {
     for(size_t i=0;i<METER_COUNT;++i) {
         std::string options=i<4?"Scegli canale":"Da associare";int selected=0;
@@ -259,10 +268,10 @@ void EnergyUi::update(const EnergyModel &m,bool demo,int scenario,bool audioAvai
     text(remaining,"Limite "+value(m.config.limit/1000,"kW",2)+"\nMargine "+value((m.config.limit-m.total)/1000,"kW",2));
     std::string state=m.alarm?"ALLARME · soglia superata":!m.complete?((m.transport=="Shelly Cloud collegato"||m.transport=="Rete locale collegata"||m.transport=="Locale + Shelly Cloud")?"Attendo letture aggiornate":m.transport):m.total>=m.config.warning?"PREAVVISO · vicino alla soglia":"Consumi entro la soglia";
     if(m.alarm&&!m.complete)state+=" · dati non disponibili";
-    text(alarmLabel,(demo?"SIMULAZIONE · ":"")+state);lv_obj_set_style_text_color(alarmLabel,lv_color_hex(color),0);
+    text(alarmLabel,(demo?"SIMULAZIONE · ":"")+state);textColor(alarmLabel,color);
     for(size_t i=0;i<4;++i){const auto &r=m.readings[i];text(names[i],cached.sources[i].name);
         text(powers[i],value(r.available?r.power:MISSING,"W"));
-        lv_obj_set_style_text_color(powers[i],lv_color_hex(r.available?TEXT:MUTED),0);
+        textColor(powers[i],r.available?TEXT:MUTED);
         std::string info=r.available?value(r.voltage,"V",0)+" · aggiornato "+std::to_string(r.age)+" s fa · "+(r.local?"LAN":"Cloud"):r.reason;
         if(!r.available&&std::isfinite(r.power))info+=" · ultimo "+value(r.power,"W");
         text(ages[i],info);
@@ -279,7 +288,7 @@ void EnergyUi::update(const EnergyModel &m,bool demo,int scenario,bool audioAvai
     if(detailIndex>=0){int i=detailIndex;const auto &r=m.readings[i];
         text(detailTitle,cached.sources[i].name);
         text(detailStatus,(demo?"SIMULAZIONE · ":r.local?"LOCALE · ":"CLOUD · ")+r.reason+(r.available?" · ultimo dato "+std::to_string(r.age)+" s fa":"")+(m.alarm?" · ALLARME CASA":""));
-        lv_obj_set_style_text_color(detailStatus,lv_color_hex(m.alarm?RED:r.available?GREEN:AMBER),0);
+        textColor(detailStatus,m.alarm?RED:r.available?GREEN:AMBER);
         text(detailPower,italianValue(r.available?r.power:MISSING,"W"));
         text(detailEnergy,italianValue(r.available?r.energyWh/1000:MISSING,"kWh",3));
         text(detailPowerInfo,"Tensione "+italianValue(r.available?r.voltage:MISSING,"V"));
@@ -292,15 +301,21 @@ void EnergyUi::update(const EnergyModel &m,bool demo,int scenario,bool audioAvai
             auto at=shown++;show(detailApplianceCards[at],true);
             text(detailApplianceNames[at],cached.sources[j].name);
             text(detailAppliancePowers[at],child.assigned?italianValue(child.available?child.power:MISSING,"W"):"Da associare");
-            lv_obj_set_style_text_font(detailAppliancePowers[at],child.assigned?&casa_font_24:&casa_font_14,0);
+            textFont(detailAppliancePowers[at],child.assigned?&casa_font_24:&casa_font_14);
             text(detailApplianceEnergy[at],child.assigned?"Totale "+italianValue(child.available?child.energyWh/1000:MISSING,"kWh",3):"Configura nelle impostazioni");
         }
         for(size_t j=shown;j<3;++j)show(detailApplianceCards[j],false);
         int graphTop=shown?306:218,plotY=graphTop+32,plotHeight=434-plotY;
+        auto samples=m.history(size_t(i));
+        // History is sampled every three seconds. NaN gaps compare equal here
+        // so a missing reading cannot force a redraw every 500 ms either.
+        bool sameSamples=detailGraphCached&&detailGraphTop==graphTop&&samples.size()==detailGraphSamples.size()&&
+            std::equal(samples.begin(),samples.end(),detailGraphSamples.begin(),[](float a,float b){return a==b||(std::isnan(a)&&std::isnan(b));});
+        if(sameSamples)return;
+        detailGraphSamples=samples;detailGraphCached=true;detailGraphTop=graphTop;
         lv_obj_set_y(detailGraphTitle,graphTop);lv_obj_set_y(detailGraphStats,graphTop+3);
         lv_obj_set_y(detailChart,plotY);lv_obj_set_height(detailChart,plotHeight);
         lv_obj_set_y(detailGraphEmpty,plotY+plotHeight/2-8);
-        auto samples=m.history(size_t(i));
         double low=0,high=0,minimum=MISSING,maximum=MISSING;size_t valid=0;
         for(auto v:samples)if(std::isfinite(v)){
             minimum=valid?std::min(minimum,double(v)):double(v);maximum=valid?std::max(maximum,double(v)):double(v);++valid;

@@ -12,7 +12,9 @@
 using namespace casa;
 static std::array<unsigned char,800*480*3> pixels{};
 static lv_color_t buffer[800*60];
+static unsigned flushCount=0;
 static void flush(lv_disp_drv_t *driver,const lv_area_t *area,lv_color_t *colors) {
+    ++flushCount;
     for(int y=area->y1;y<=area->y2;++y) for(int x=area->x1;x<=area->x2;++x) {
         lv_color32_t rgb;
         rgb.full=lv_color_to32(*colors++);
@@ -126,6 +128,12 @@ int main(int argc,char **argv) {
     for(auto *tile:ui.energy.tiles)fitsScreen(tile);
     fitsScreen(ui.energy.demoButton);fitsScreen(ui.energy.muteButton);fitsScreen(ui.energy.testButton);
     render(out+"/energy-normal.ppm");
+    flushCount=0;
+    for(int repeat=0;repeat<3;++repeat){ui.energy.update(energy,true,0,true,catalog);layout();lv_refr_now(nullptr);}
+    CHECK(flushCount==0); // Identical readings must not redraw a full RGB frame.
+    ui.energy.update(energy,false,0,true,catalog);layout();lv_refr_now(nullptr);
+    flushCount=0;ui.energy.update(energy,false,0,true,catalog);layout();lv_refr_now(nullptr);
+    CHECK(flushCount==0); // Also outside simulation, with its button hidden.
     click(ui.energy.tiles[2]);ui.energy.update(energy,true,0,true,catalog);render(out+"/energy-detail.ppm");
     ui.energy.closeOverlay();
     // Readable units, bounded chart labels, hidden technical details and gaps in
@@ -145,6 +153,17 @@ int main(int argc,char **argv) {
     CHECK(!findText(detailRoot,"emeters[1]"));CHECK(!findText(detailRoot,"Da associare"));
     fitsScreen(ui.energy.detailInfoButton);fitsScreen(findText(detailRoot,"50 W"));fitsScreen(findText(detailRoot,"Ora"));
     render(out+"/energy-detail-luce.ppm");
+    flushCount=0;
+    for(int repeat=0;repeat<3;++repeat){ui.energy.update(graph,true,0,true,catalog);layout();lv_refr_now(nullptr);}
+    CHECK(flushCount==0); // Includes unchanged history with NaN gaps.
+    graph.readings[0].power=38;
+    ui.energy.update(graph,true,0,true,catalog);layout();lv_refr_now(nullptr);
+    CHECK(flushCount>0);CHECK(findText(detailRoot,"38 W"));
+    graph.readings[0].power=37;
+    raw[0].power=80;raw[0].marker="1000091";
+    graph.ingest(raw,274000);
+    flushCount=0;ui.energy.update(graph,true,0,true,catalog);layout();lv_refr_now(nullptr);
+    CHECK(flushCount>0);CHECK(findText(detailRoot,"Max 80 W"));
     click(ui.energy.detailInfoButton);CHECK(findText(detailRoot,"emeters[1]"));
     render(out+"/energy-detail-info.ppm");
     click(lv_obj_get_parent(findText(detailRoot,"Chiudi")));CHECK(!findText(detailRoot,"emeters[1]"));
